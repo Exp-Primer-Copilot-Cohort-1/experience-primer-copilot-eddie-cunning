@@ -1,36 +1,63 @@
-//create web server
+// Create web server
+// 1. Create web server
+// 2. Create a route for the comments page
+// 3. Create a route for the comment form
+// 4. Create a route for the comment submission
+
 var http = require('http');
 var fs = require('fs');
 var url = require('url');
-var path = require('path');
-var comments = [];
-var server = http.createServer(function(request, response) {
-  var urlObj = url.parse(request.url, true);
-  var pathname = urlObj.pathname;
-  if (pathname === '/') {
-    var filePath = path.join(__dirname, 'index.html');
-    fs.readFile(filePath, 'utf8', function(err, data) {
+var querystring = require('querystring');
+
+// Create web server
+var server = http.createServer(function(req, res) {
+  // Parse the request URL
+  var url_parts = url.parse(req.url);
+
+  // Route for the comments page
+  if (url_parts.pathname == '/comments') {
+    res.writeHead(200, {'Content-Type': 'text/html'});
+    res.write('<h2>Comments</h2>');
+
+    // Read the comments from the file
+    fs.readFile('comments.txt', 'utf8', function(err, data) {
       if (err) {
-        console.error(err);
+        res.write('<p>There are no comments yet.</p>');
+        res.end();
       } else {
-        response.end(data);
-      }
-    });
-  } else if (pathname === '/addComment') {
-    var comment = urlObj.query;
-    comments.push(comment);
-    response.end(JSON.stringify(comments));
-  } else {
-    var filePath = path.join(__dirname, pathname);
-    fs.readFile(filePath, 'utf8', function(err, data) {
-      if (err) {
-        console.error(err);
-      } else {
-        response.end(data);
+        res.write(data);
+        res.end();
       }
     });
   }
-});
-server.listen(8080, function() {
-  console.log('服务器已启动, 请访问: http://localhost:8080');
-});
+
+  // Route for the comment form
+  else if (url_parts.pathname == '/comment') {
+    res.writeHead(200, {'Content-Type': 'text/html'});
+    res.write('<h2>Submit a comment</h2>');
+    res.write('<form method="POST" action="/submit_comment">');
+    res.write('Name: <input name="name"><br>');
+    res.write('Comment: <textarea name="comment"></textarea><br>');
+    res.write('<input type="submit">');
+    res.write('</form>');
+    res.end();
+  }
+
+  // Route for the comment submission
+  else if (url_parts.pathname == '/submit_comment') {
+    var comment_data = '';
+    req.on('data', function(chunk) {
+      comment_data += chunk;
+    });
+
+    req.on('end', function() {
+      var comment = querystring.parse(comment_data);
+      res.writeHead(200, {'Content-Type': 'text/html'});
+      res.write('<h2>Comment submitted</h2>');
+      res.write('Name: ' + comment['name'] + '<br>');
+      res.write('Comment: ' + comment['comment'] + '<br>');
+      res.end();
+
+      // Append the comment to the file
+      var stream = fs.createWriteStream('comments.txt', {'flags': 'a'});
+      stream.write(comment['name'] + ':
